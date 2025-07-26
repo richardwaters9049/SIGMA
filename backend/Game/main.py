@@ -217,14 +217,26 @@ class GameEngine:
         current_time = pygame.time.get_ticks()
         self.draw_background_effects(current_time)
         
-        # Main SIGMA title - large and centered
+        # Main SIGMA title - large and centered with a techy font
         sigma_color = (0, 255, 100)  # Bright tech green
-        sigma_font = pygame.font.SysFont("Arial", 64, bold=True)
-        sigma_text = sigma_font.render("SIGMA", True, sigma_color)
+        try:
+            # Try to load a more interesting font if available
+            title_font = pygame.font.Font("assets/fonts/RobotoMono-Bold.ttf", 72)
+            tagline_font = pygame.font.Font("assets/fonts/RobotoMono-Regular.ttf", 18)
+            mission_font = pygame.font.Font("assets/fonts/RobotoMono-Medium.ttf", 20)
+        except:
+            # Fall back to system monospace fonts if custom font not found
+            title_font = pygame.font.SysFont("Consolas", 72, bold=True)
+            tagline_font = pygame.font.SysFont("Consolas", 18)
+            mission_font = pygame.font.SysFont("Courier New", 20, bold=True)
+            
+        # Render title with subtle text shadow for depth
+        sigma_text = title_font.render("SIGMA", True, sigma_color)
+        shadow = title_font.render("SIGMA", True, (0, 50, 0, 150))
+        self.screen.blit(shadow, (self.width//2 - sigma_text.get_width()//2 + 3, 43))
         self.screen.blit(sigma_text, (self.width//2 - sigma_text.get_width()//2, 40))
         
-        # Tagline
-        tagline_font = pygame.font.SysFont("Arial", 16, bold=True)
+        # Tagline with slight glow effect
         tagline = "ADVANCED THREAT SIMULATION PLATFORM"
         tagline_surf = tagline_font.render(tagline, True, (100, 255, 100))
         self.screen.blit(tagline_surf, (self.width//2 - tagline_surf.get_width()//2, 120))
@@ -245,8 +257,7 @@ class GameEngine:
         pygame.draw.rect(container_surface, border_color, container_surface.get_rect(), 2)
         self.screen.blit(container_surface, (container_x, container_y))
         
-        # Mission list settings
-        mission_font = pygame.font.SysFont("Arial", 20)
+        # Mission list settings (font already set in the try-except block above)
         mission_height = 50
         mission_spacing = 10
         visible_missions = min(5, (container_height - 2 * container_padding) // (mission_height + mission_spacing))
