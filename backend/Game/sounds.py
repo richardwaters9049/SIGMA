@@ -456,47 +456,117 @@ class SoundManager:
 
         return pygame.sndarray.make_sound((stereo * 32767).astype(numpy.int16))
 
+    def _create_success_sound(self) -> pygame.mixer.Sound:
+        """Create a success confirmation sound"""
+        sample_rate = 44100
+        duration = 0.6  # seconds
+        n_samples = int(sample_rate * duration)
+        
+        # Create a rising tone for success
+        t = numpy.linspace(0, duration, n_samples, False)
+        tone1 = 0.2 * numpy.sin(2 * numpy.pi * 880 * t)  # A5
+        tone2 = 0.15 * numpy.sin(2 * numpy.pi * 1318.51 * t)  # E6
+        
+        # Create an envelope (quick attack, medium release)
+        attack = int(0.1 * sample_rate)  # 100ms attack
+        release = int(0.3 * sample_rate)  # 300ms release
+        
+        envelope = numpy.ones(n_samples)
+        if attack > 0:
+            envelope[:attack] = numpy.linspace(0, 1, attack)
+        if release > 0:
+            envelope[-release:] = numpy.linspace(1, 0, release)
+        
+        # Combine tones and apply envelope
+        audio = (tone1 + tone2) * envelope
+        audio = numpy.clip(audio, -0.99, 0.99)
+        
+        # Create stereo sound
+        stereo = numpy.column_stack((audio, audio * 0.95))  # Slight stereo variation
+        sound = pygame.sndarray.make_sound((stereo * 32767).astype(numpy.int16))
+        sound.set_volume(0.5)  # Reasonable volume level
+        return sound
+        
+    def _create_failure_sound(self) -> pygame.mixer.Sound:
+        """Create a failure/error sound effect"""
+        sample_rate = 44100
+        duration = 0.8  # seconds
+        n_samples = int(sample_rate * duration)
+        
+        # Create a falling tone for failure
+        t = numpy.linspace(0, duration, n_samples, False)
+        tone = 0.3 * numpy.sin(2 * numpy.pi * 440 * (1 - 0.5 * t / duration) * t)  # Falling pitch
+        
+        # Create an envelope (quick attack, medium release)
+        attack = int(0.05 * sample_rate)  # 50ms attack
+        release = int(0.4 * sample_rate)  # 400ms release
+        
+        envelope = numpy.ones(n_samples)
+        if attack > 0:
+            envelope[:attack] = numpy.linspace(0, 1, attack)
+        if release > 0:
+            envelope[-release:] = numpy.linspace(1, 0, release)
+        
+        # Apply envelope and add some noise
+        audio = tone * envelope
+        noise = 0.1 * (numpy.random.random(n_samples) * 2 - 1)  # Add some noise
+        audio = numpy.clip(audio + noise, -0.99, 0.99)
+        
+        # Create stereo sound
+        stereo = numpy.column_stack((audio, audio * 0.9))  # Slight stereo variation
+        sound = pygame.sndarray.make_sound((stereo * 32767).astype(numpy.int16))
+        sound.set_volume(0.4)  # Slightly lower volume for error sounds
+        return sound
+        
     def _create_keyboard_sound(self, duration_ms: int = 5000) -> pygame.mixer.Sound:
         """Create a keyboard typing sound effect"""
         sample_rate = 44100
         n_samples = int(sample_rate * duration_ms / 1000)
+        
+        # Ensure we have a minimum length to avoid empty array issues
+        if n_samples == 0:
+            # Return a silent sound if duration is 0
+            return pygame.mixer.Sound(buffer=bytes([0, 0, 0, 0]))
 
         # Create an array to hold the audio data
         audio = numpy.zeros(n_samples)
-
+        
+        # Limit the number of key presses to prevent too many sounds
+        max_key_presses = min(100, n_samples // 100)  # At most 100 key presses or 1 per 100 samples
+        
         # Create key press events with varying speeds and patterns
-        key_interval = int(
-            sample_rate * random.uniform(0.05, 0.15)
-        )  # 50-150ms between key presses
+        for _ in range(max_key_presses):
+            # Random position for the key press
+            pos = random.randint(0, max(1, n_samples - 1000))  # Leave room for the key press
+            
+            # Random key press length (3-10ms)
+            press_len = min(1000, max(100, random.randint(130, 400)))  # Ensure reasonable bounds
+            
+            # Ensure we don't go out of bounds
+            press_len = min(press_len, n_samples - pos)
+            if press_len <= 0:
+                continue
+                
+            # Random frequency for this key (higher frequencies for higher keys)
+            freq = random.uniform(100, 1000)
 
-        for i in range(0, n_samples - 1000, key_interval):
-            if random.random() > 0.3:  # 70% chance of a key press
-                # Randomize the timing slightly
-                pos = min(
-                    i + random.randint(-key_interval // 3, key_interval // 3),
-                    n_samples - 1000,
-                )
+            # Create a short tone for the key press
+            t = numpy.linspace(0, press_len / 1000, press_len, False)
+            tone = 0.15 * numpy.sin(2 * numpy.pi * freq * t)  # Reduced volume
 
-                # Random key press length (3-10ms)
-                press_len = random.randint(130, 400)
+            # Apply an envelope (quick attack, quick release)
+            attack = max(1, int(press_len * 0.2))
+            release = max(1, int(press_len * 0.3))
+            
+            # Ensure attack + release doesn't exceed press_len
+            if attack + release > press_len:
+                attack = release = max(1, press_len // 2)
 
-                # Random frequency for this key (higher frequencies for higher keys)
-                freq = random.uniform(100, 1000)
-
-                # Create a short tone for the key press
-                t = numpy.linspace(0, press_len / 1000, press_len, False)
-                tone = 0.2 * numpy.sin(2 * numpy.pi * freq * t)
-
-                # Apply an envelope (quick attack, quick release)
-                attack = int(press_len * 0.2)
-                release = int(press_len * 0.3)
-                sustain = press_len - attack - release
-
-                envelope = numpy.ones(press_len)
-                if attack > 0:
-                    envelope[:attack] = numpy.linspace(0, 1, attack)
-                if release > 0:
-                    envelope[-release:] = numpy.linspace(1, 0, release)
+            envelope = numpy.ones(press_len)
+            if attack > 0 and attack < press_len:
+                envelope[:attack] = numpy.linspace(0, 1, attack)
+            if release > 0 and release < press_len:
+                envelope[-release:] = numpy.linspace(1, 0, release)
 
                 # Add some randomness to the volume
                 volume = random.uniform(0.1, 0.3)
@@ -541,47 +611,6 @@ class SoundManager:
         stereo = numpy.column_stack((noise, noise * 0.95))  # Slight stereo variation
 
         return pygame.sndarray.make_sound((stereo * 32767).astype(numpy.int16))
-
-    # ==============================================
-    # Basic Sound Effects
-    # ==============================================
-
-    def _create_success_sound(self) -> pygame.mixer.Sound:
-        """Create a success confirmation sound"""
-        sample_rate = 44100
-        duration = 0.6  # seconds
-        n_samples = int(sample_rate * duration)
-        t = numpy.linspace(0, duration, n_samples, False)
-
-        # Create a rising major chord (C-E-G)
-        c_note = 0.2 * numpy.sin(2 * numpy.pi * 523.25 * t)  # C5
-        e_note = 0.15 * numpy.sin(2 * numpy.pi * 659.25 * t)  # E5
-        g_note = 0.15 * numpy.sin(2 * numpy.pi * 783.99 * t)  # G5
-
-        # Create amplitude envelope (quick attack, medium release)
-        attack = int(0.05 * sample_rate)  # 50ms attack
-        release = int(0.3 * sample_rate)  # 300ms release
-
-        envelope = numpy.ones(n_samples)
-        if attack > 0:
-            envelope[:attack] = numpy.linspace(0, 1, attack)
-        if release > 0:
-            envelope[-release:] = numpy.linspace(1, 0, release)
-
-        # Combine notes and apply envelope
-        audio = (c_note + e_note + g_note) * envelope
-        audio = numpy.clip(audio, -0.99, 0.99)
-
-        # Convert to stereo with slight variation
-        stereo = numpy.column_stack((audio, audio * 0.95))
-
-        sound = pygame.sndarray.make_sound((stereo * 32767).astype(numpy.int16))
-        sound.set_volume(0.6)
-        return sound
-
-    def _create_failure_sound(self) -> pygame.mixer.Sound:
-        """Create a failure sound effect"""
-        sample_rate = 44100
         duration = 0.8  # seconds
         n_samples = int(sample_rate * duration)
         t = numpy.linspace(0, duration, n_samples, False)

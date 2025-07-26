@@ -212,44 +212,44 @@ class GameEngine:
         return x_offset
 
     def draw_mission_list(self):
-        """Draw missions with animated selection, glitch effects, and visual feedback."""
+        """Draw missions with a clean, modern tech style and proper layout."""
         # Draw animated background
         current_time = pygame.time.get_ticks()
         self.draw_background_effects(current_time)
-
-        # Draw title with subtle animation and shadow
-        title_alpha = 200 + 55 * math.sin(current_time * 0.002)
-        title_color = (
-            min(255, int(title_alpha)),
-            min(255, int(title_alpha)),
-            min(255, int(title_alpha)),
-        )  # White with pulsing alpha
-
-        # Title text with shadow for depth
-        title_text = "MISSION SELECT"
-        title_width = self.render_text_with_spacing(
-            title_text,
-            self.title_font,
-            (20, 20, 20),  # Shadow color (dark gray)
-            self.width // 2 - 200,
-            38,  # Position
-            self.letter_spacing * 2,  # Slightly more spacing for title
-        )
-
-        # Draw main title text
-        title_width = self.render_text_with_spacing(
-            title_text,
-            self.title_font,
-            title_color,
-            self.width // 2 - 200,
-            35,  # Position above shadow
-            self.letter_spacing * 2,  # Slightly more spacing for title
-        )
-
-        # Mission list layout settings
-        mission_height = 80  # Increased height for better spacing
-        mission_spacing = 20  # Space between missions
-        visible_missions = min(5, (self.height - 300) // (mission_height + mission_spacing))
+        
+        # Main SIGMA title - large and centered
+        sigma_color = (0, 255, 100)  # Bright tech green
+        sigma_font = pygame.font.SysFont("Arial", 64, bold=True)
+        sigma_text = sigma_font.render("SIGMA", True, sigma_color)
+        self.screen.blit(sigma_text, (self.width//2 - sigma_text.get_width()//2, 40))
+        
+        # Tagline
+        tagline_font = pygame.font.SysFont("Arial", 16, bold=True)
+        tagline = "ADVANCED THREAT SIMULATION PLATFORM"
+        tagline_surf = tagline_font.render(tagline, True, (100, 255, 100))
+        self.screen.blit(tagline_surf, (self.width//2 - tagline_surf.get_width()//2, 120))
+        
+        # Mission list container
+        container_width = min(800, self.width - 100)
+        container_height = min(400, self.height - 250)
+        container_x = (self.width - container_width) // 2
+        container_y = 170
+        container_padding = 20
+        
+        # Draw container background
+        container_surface = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
+        container_surface.fill((0, 20, 10, 200))  # Semi-transparent dark green
+        
+        # Add border
+        border_color = (0, 120, 60, 200)
+        pygame.draw.rect(container_surface, border_color, container_surface.get_rect(), 2)
+        self.screen.blit(container_surface, (container_x, container_y))
+        
+        # Mission list settings
+        mission_font = pygame.font.SysFont("Arial", 20)
+        mission_height = 50
+        mission_spacing = 10
+        visible_missions = min(5, (container_height - 2 * container_padding) // (mission_height + mission_spacing))
         
         # Calculate start index for scrolling
         start_index = max(0, min(
@@ -258,166 +258,92 @@ class GameEngine:
         ))
         
         # Calculate vertical position of the first mission
-        start_y = 120
+        start_y = container_y + container_padding
         
         for i in range(start_index, min(start_index + visible_missions, len(self.missions))):
             mission = self.missions[i]
+            is_selected = i == self.selected_index
             y_pos = start_y + (i - start_index) * (mission_height + mission_spacing)
             
-            # Skip drawing if off-screen (with some padding)
-            if y_pos < 80 or y_pos > self.height - 100:
-                continue
-                
-            # Determine if this is the selected mission
-            is_selected = i == self.selected_index
-            
-            # Mission background settings
-            bg_width = self.width - 120
+            # Mission background
+            bg_width = container_width - (2 * container_padding)
             bg_height = mission_height
-            bg_x = 60
-            bg_y = y_pos - 5
+            bg_x = container_x + container_padding
+            bg_y = y_pos
             
-            # Draw mission background with subtle animation for selected mission
+            # Draw selection highlight
             if is_selected:
-                # Pulsing glow effect for selected mission
-                glow_alpha = 40 + 20 * math.sin(current_time * 0.005)
-                glow_surf = pygame.Surface((bg_width + 20, bg_height + 20), pygame.SRCALPHA)
+                bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
                 pygame.draw.rect(
-                    glow_surf, 
-                    (100, 255, 100, int(glow_alpha)),
-                    glow_surf.get_rect(),
-                    border_radius=10
+                    bg_surf,
+                    (0, 50, 25, 200),  # Darker green for selected
+                    bg_surf.get_rect(),
+                    border_radius=4
                 )
-                self.screen.blit(glow_surf, (bg_x - 10, bg_y - 10), special_flags=pygame.BLEND_ADD)
-                
-                # Main background for selected mission
-                bg_color = (30, 35, 45, 240)  # Slightly brighter than non-selected
-                border_color = (100, 255, 100, 180)
-            else:
-                # Non-selected mission background
-                bg_color = (20, 25, 35, 200)
-                border_color = (50, 60, 70, 120)
+                # Left accent bar
+                pygame.draw.rect(
+                    bg_surf,
+                    (0, 255, 100),
+                    (0, 0, 4, bg_height)
+                )
+                self.screen.blit(bg_surf, (bg_x, bg_y))
             
-            # Draw mission background
-            bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
-            pygame.draw.rect(
-                bg_surf,
-                bg_color,
-                bg_surf.get_rect(),
-                border_radius=8
-            )
+            # Draw mission text
+            text_y = bg_y + (mission_height - 24) // 2  # Center vertically
             
-            # Add border
-            pygame.draw.rect(
-                bg_surf,
-                border_color,
-                bg_surf.get_rect(),
-                width=1,
-                border_radius=8
-            )
+            # Mission prefix (only show for selected)
+            if is_selected:
+                prefix = ">>"
+                prefix_surf = mission_font.render(prefix, True, (0, 255, 100))
+                self.screen.blit(prefix_surf, (bg_x + 15, text_y))
             
-            self.screen.blit(bg_surf, (bg_x, bg_y))
+            # Mission name
+            mission_text = f"MISSION: {mission['name']}"
+            mission_surf = mission_font.render(mission_text, True, (220, 220, 220))
             
-            # Prepare mission text parts
-            prefix = "» " if is_selected else "  "
+            # Truncate text if too long
+            max_text_width = bg_width - 100
+            if mission_surf.get_width() > max_text_width:
+                while mission_surf.get_width() > max_text_width and len(mission_text) > 10:
+                    mission_text = mission_text[:-4] + "..."
+                    mission_surf = mission_font.render(mission_text, True, (220, 220, 220))
             
-            # Color code by difficulty
+            self.screen.blit(mission_surf, (bg_x + 50, text_y))
+            
+            # Difficulty - right aligned
             difficulty = mission["difficulty"].lower()
             if difficulty == "easy":
-                text_color = (180, 255, 180)  # Light green
+                diff_color = (100, 255, 100)  # Green
             elif difficulty == "medium":
-                text_color = (255, 255, 150)  # Light yellow
+                diff_color = (255, 200, 0)    # Yellow
             else:
-                text_color = (255, 150, 150)  # Light red
+                diff_color = (255, 100, 100)  # Red
+                
+            difficulty_text = f"{mission['difficulty'].upper()}"
+            diff_surf = mission_font.render(difficulty_text, True, diff_color)
+            diff_x = bg_x + bg_width - diff_surf.get_width() - 20
+            self.screen.blit(diff_surf, (diff_x, text_y))
+        
+        # Draw controls help at the bottom
+        controls_font = pygame.font.SysFont("Arial", 14)
+        controls_text = "↑/↓: Select  |  ENTER: Start  |  ESC: Quit"
+        controls_surf = controls_font.render(controls_text, True, (150, 150, 150))
+        controls_x = self.width - controls_surf.get_width() - 20
+        controls_y = self.height - 30
+        self.screen.blit(controls_surf, (controls_x, controls_y))
 
-            # Calculate text position within the mission box
-            text_x = bg_x + 20  # Left padding
-            text_y = bg_y + (bg_height - self.font_size) // 2  # Vertically center
-            
-            # Render mission text with custom spacing
-            mission_text = f"{prefix} {mission['name']}"
-            difficulty_text = f"[{mission['difficulty'].upper()}]"
-            
-            # Render mission name
-            if is_selected:
-                # Glitch effect for selected mission
-                text_surface = self.glitch_text(mission_text, text_color)
-                self.screen.blit(text_surface, (text_x, text_y))
-                
-                # Draw difficulty badge with glow
-                badge_x = bg_x + bg_width - 120  # Position on the right side
-                badge_y = bg_y + (bg_height - self.font_size) // 2
-                
-                # Badge background
-                badge_bg = pygame.Surface((100, 30), pygame.SRCALPHA)
-                pygame.draw.rect(badge_bg, (*text_color[:3], 30), badge_bg.get_rect(), border_radius=4)
-                pygame.draw.rect(badge_bg, (*text_color[:3], 100), badge_bg.get_rect(), width=1, border_radius=4)
-                self.screen.blit(badge_bg, (badge_x - 5, badge_y - 3))
-                
-                # Difficulty text
-                diff_surface = self.font.render(difficulty_text, True, text_color)
-                self.screen.blit(diff_surface, (badge_x, badge_y))
-                
-                # Add subtle animation to selected mission text
-                if random.random() < 0.05:  # 5% chance per frame to glitch
-                    glitch_surf = self.glitch_text(mission_text, text_color)
-                    self.screen.blit(glitch_surf, (text_x, text_y))
-            else:
-                # Regular text for non-selected missions
-                self.render_text_with_spacing(
-                    mission_text,
-                    self.font,
-                    text_color,
-                    text_x,
-                    text_y,
-                    self.letter_spacing
-                )
-                
-                # Draw difficulty badge
-                diff_surface = self.font.render(difficulty_text, True, text_color)
-                badge_x = bg_x + bg_width - 120
-                badge_y = text_y
-                self.screen.blit(diff_surface, (badge_x, badge_y))
-            # Check if this mission is selected
-            is_selected = i == self.selected_index
-
-            # Set color based on mission type
-            if mission.get("type") == "download":
-                color = (100, 200, 255)  # Blue for downloads
-            elif mission.get("type") == "decrypt":
-                color = (255, 100, 200)  # Pink for decryption
-            else:
-                color = (0, 255, 0)  # Green for standard missions
-                
-            if not is_selected:
-                # Fade out unselected missions slightly
-                color = tuple(max(50, c - 50) for c in color)
-                
-            # Draw mission name with glitch effect when selected
-            if is_selected and random.random() < 0.1:  # 10% chance of glitch
-                mission_text = self.glitch_text(f"{mission['name']}", color)
-            else:
-                mission_text = self.font.render(mission["name"], True, color)
-
-                if not is_selected:
-                    # Fade out unselected missions slightly
-                    color = tuple(max(50, c - 50) for c in color)
-
-                mission_text = self.font.render(mission["name"], True, color)
-
-            # Draw mission text with shadow for better readability
-            text_shadow = self.font.render(mission["name"], True, (0, 30, 0))
-            self.screen.blit(text_shadow, (85, y_pos + 12))
-            self.screen.blit(mission_text, (85, y_pos + 10))
-
-            # Draw difficulty indicator
-            difficulty = mission.get("difficulty", "normal").upper()
-            diff_color = {
-                "EASY": (0, 255, 0),
-                "NORMAL": (255, 255, 0),
-                "HARD": (255, 100, 0),
-                "EXTREME": (255, 0, 0),
-            }.get(difficulty, (200, 200, 200))
+    def type_text(self, text, pos, delay=30):
+        """Render text with typing animation effect."""
+        displayed_text = ""
+        for char in text:
+            displayed_text += char
+            self.screen.fill(
+                (0, 0, 0), (pos[0], pos[1], self.width, 40)
+            )  # Clear previous text line
+            rendered = self.font.render(displayed_text, True, (0, 255, 0))
+            self.screen.blit(rendered, pos)
+            pygame.display.flip()
+            pygame.time.delay(delay)
 
             diff_text = self.font.render(f"[{difficulty}]", True, diff_color)
             self.screen.blit(diff_text, (self.width - 150, y_pos + 10))
