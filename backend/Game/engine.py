@@ -1,147 +1,187 @@
 import pygame
 import sys
+import random
 from Database.mission_store import fetch_all_missions
 
 
+class MatrixRain:
+    """Creates matrix-style vertical rain animation."""
+
+    def __init__(self, screen, width, height, font):
+        self.screen = screen
+        self.width = width
+        self.height = height
+        self.font = font
+
+        self.font_width, self.font_height = self.font.size("A")
+        self.columns = self.width // self.font_width
+        self.drops = [random.randint(-20, 0) for _ in range(self.columns)]
+        self.chars = ["0", "1"]
+
+    def draw(self):
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(60)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        for i in range(self.columns):
+            char = random.choice(self.chars)
+            x = i * self.font_width
+            y = self.drops[i] * self.font_height
+
+            char_surface = self.font.render(char, True, (0, 255, 0))
+            self.screen.blit(char_surface, (x, y))
+
+            self.drops[i] += 1
+            if (
+                self.drops[i] * self.font_height > self.height
+                and random.random() > 0.975
+            ):
+                self.drops[i] = random.randint(-20, 0)
+
+
 class GameEngine:
-    """Core game engine handling game loop, mission selection and rendering."""
+    """Handles game loop, mission logic, UI rendering."""
 
     def __init__(self, width=800, height=600):
-        """Initialise the game window, font, missions, and states."""
-        # Set up window
+        pygame.init()
+        pygame.font.init()
+
         self.width = width
         self.height = height
         self.screen = pygame.display.set_mode((self.width, self.height))
         pygame.display.set_caption("SIGMA: AI Hacker Protocol")
+
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # Initialise Pygame font system before creating fonts
-        pygame.font.init()
         self.font = pygame.font.SysFont("Courier New", 20)
+        self.big_font = pygame.font.SysFont("Courier New", 36)
 
-        # Fetch missions from database
         self.missions = fetch_all_missions()
-        self.selected_index = 0  # Which mission is currently highlighted
+        self.selected_index = 0
 
-        # State flags
-        self.in_loading_screen = False
-        self.loading_counter = 0  # For animation frames during loading
+        self.state = "menu"  # 'menu', 'loading', 'gameplay', 'result'
+        self.loading_counter = 0
+        self.matrix_rain = MatrixRain(self.screen, self.width, self.height, self.font)
+
+        self.mission_timer = 0
+        self.mission_duration = 300  # 5 seconds (60 FPS)
+        self.mission_outcome = None  # "success" or "failure"
 
     def handle_events(self):
-        """Handle input events for quitting, navigation, and selection."""
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
 
             elif event.type == pygame.KEYDOWN:
-                if not self.in_loading_screen:
-                    # Navigation with arrow keys only if not loading
-                    if event.key == pygame.K_UP:
-                        # Move selection up, wrap around if needed
+                if self.state == "menu":
+                    if event.key == pygame.K_ESCAPE:
+                        self.running = False
+                    elif event.key == pygame.K_UP:
                         self.selected_index = (self.selected_index - 1) % len(
                             self.missions
                         )
-
                     elif event.key == pygame.K_DOWN:
-                        # Move selection down, wrap around if needed
                         self.selected_index = (self.selected_index + 1) % len(
                             self.missions
                         )
-
                     elif event.key == pygame.K_RETURN:
-                        # Enter pressed: start loading screen for selected mission
-                        self.in_loading_screen = True
+                        self.state = "loading"
                         self.loading_counter = 0
 
-                    elif event.key == pygame.K_ESCAPE:
-                        self.running = False
-
-                else:
-                    # If in loading screen, maybe ESC can cancel
-                    if event.key == pygame.K_ESCAPE:
-                        self.in_loading_screen = False
+                elif self.state == "result":
+                    if event.key in [pygame.K_RETURN, pygame.K_ESCAPE]:
+                        self.state = "menu"
 
     def update(self):
-        """Update game state."""
-        if self.in_loading_screen:
-            # Increment loading animation counter
+        if self.state == "loading":
             self.loading_counter += 1
-            if self.loading_counter > 180:  # e.g. 3 seconds at 60 FPS
-                # Loading complete - exit loading screen and back to menu (or next phase)
-                self.in_loading_screen = False
+            if self.loading_counter > 180:
+                self.state = "gameplay"
+                self.mission_timer = 0
+                self.mission_outcome = None
 
-    def draw_mission_list(self):
-        """Draw the list of missions, highlighting the selected one."""
-        y_offset = 50  # Starting y position for mission list
+        elif self.state == "gameplay":
+            self.mission_timer += 1
+            if self.mission_timer >= self.mission_duration:
+                self.state = "result"
+                self.mission_outcome = random.choice(["success", "failure"])
 
-        header = self.font.render("Available Missions", True, (0, 255, 0))
+    def draw_menu(self):
+        self.screen.fill((0, 0, 0))
+        header = self.font.render(
+            "Available Missions (Use ↑ ↓, Enter to load)", True, (0, 255, 0)
+        )
         self.screen.blit(header, (20, 10))
 
-        for idx, mission in enumerate(self.missions):
-            # Format mission text with difficulty and name
-            mission_text = f"[{mission['difficulty'].upper()}] {mission['name']}"
-
-            # Highlight the selected mission differently
-            if idx == self.selected_index:
-                # Highlight background rectangle for selection
+        y = 60
+        for i, mission in enumerate(self.missions):
+            text = f"[{mission['difficulty'].upper()}] {mission['name']}"
+            if i == self.selected_index:
                 pygame.draw.rect(
-                    self.screen, (0, 100, 100), pygame.Rect(15, y_offset - 5, 770, 28)
+                    self.screen, (0, 100, 100), pygame.Rect(15, y - 5, 770, 28)
                 )
-
-                # Draw selected text in bright cyan
-                text_surface = self.font.render(mission_text, True, (0, 255, 255))
+                color = (0, 255, 255)
             else:
-                # Normal text for other missions
-                text_surface = self.font.render(mission_text, True, (0, 150, 150))
-
-            self.screen.blit(text_surface, (20, y_offset))
-            y_offset += 30
+                color = (0, 150, 150)
+            text_surf = self.font.render(text, True, color)
+            self.screen.blit(text_surf, (20, y))
+            y += 30
 
     def draw_loading_screen(self):
-        """Display an animated loading screen with retro hacker style."""
+        self.matrix_rain.draw()
+        dots = (self.loading_counter // 15) % 4
+        loading_text = "LOADING MISSION" + ("." * dots)
+        text_surf = self.font.render(loading_text, True, (0, 255, 0))
+        rect = text_surf.get_rect(center=(self.width // 2, self.height // 2))
+        self.screen.blit(text_surf, rect)
+
+    def draw_gameplay_screen(self):
         self.screen.fill((0, 0, 0))
+        title = self.big_font.render("HACKING IN PROGRESS...", True, (0, 255, 0))
+        bar_width = int((self.mission_timer / self.mission_duration) * 600)
+        bar_rect = pygame.Rect(100, 300, bar_width, 20)
+        pygame.draw.rect(self.screen, (0, 255, 0), bar_rect)
+        self.screen.blit(title, (200, 200))
 
-        # Loading text animation (dots cycling)
-        base_text = "LOADING MISSION"
-        dots = (
-            self.loading_counter // 15
-        ) % 4  # Change dots every 15 frames (~0.25 sec)
-        loading_text = base_text + ("." * dots)
+    def draw_result_screen(self):
+        self.screen.fill((0, 0, 0))
+        result_text = (
+            "MISSION SUCCESSFUL"
+            if self.mission_outcome == "success"
+            else "MISSION FAILED"
+        )
+        color = (0, 255, 0) if self.mission_outcome == "success" else (255, 0, 0)
+        result_surface = self.big_font.render(result_text, True, color)
+        self.screen.blit(
+            result_surface,
+            result_surface.get_rect(center=(self.width // 2, self.height // 2 - 20)),
+        )
 
-        # Render loading text in green
-        loading_surface = self.font.render(loading_text, True, (0, 255, 0))
-
-        # Center loading text on screen
-        rect = loading_surface.get_rect(center=(self.width // 2, self.height // 2))
-        self.screen.blit(loading_surface, rect)
-
-        # Optional: add flickering matrix-style vertical bars or scanlines
-        for i in range(0, self.width, 20):
-            alpha = 50 + (self.loading_counter * 10) % 205  # flicker effect
-            line_surface = pygame.Surface((2, self.height))
-            line_surface.set_alpha(alpha)
-            line_surface.fill((0, 255, 0))
-            self.screen.blit(line_surface, (i, 0))
+        prompt = self.font.render("Press ENTER to return to menu", True, (0, 150, 150))
+        self.screen.blit(
+            prompt, prompt.get_rect(center=(self.width // 2, self.height // 2 + 40))
+        )
 
     def draw(self):
-        """Draw current screen depending on state."""
-        if self.in_loading_screen:
+        if self.state == "menu":
+            self.draw_menu()
+        elif self.state == "loading":
             self.draw_loading_screen()
-        else:
-            self.screen.fill((0, 0, 0))  # Clear screen for menu
-            self.draw_mission_list()
+        elif self.state == "gameplay":
+            self.draw_gameplay_screen()
+        elif self.state == "result":
+            self.draw_result_screen()
 
         pygame.display.flip()
 
     def run(self):
-        """Main game loop running at 60 FPS."""
         while self.running:
             self.handle_events()
             self.update()
             self.draw()
-            self.clock.tick(60)  # Limit to 60 FPS
+            self.clock.tick(60)
 
-        # Clean exit
         pygame.quit()
         sys.exit()

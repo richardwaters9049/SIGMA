@@ -158,20 +158,23 @@ class GameEngine:
 
     def glitch_text(self, text, base_color=(0, 255, 0)):
         """Create a text surface with random flicker glitches.
-        
+
         Args:
             text (str): The text to render
             base_color (tuple): RGB color tuple (r, g, b) with values 0-255
-            
+
         Returns:
             pygame.Surface: Surface with rendered text and glitch effects
         """
         # Ensure base_color is a valid RGB tuple
-        if not isinstance(base_color, (tuple, list)) or len(base_color) != 3 or \
-           not all(isinstance(c, int) and 0 <= c <= 255 for c in base_color):
+        if (
+            not isinstance(base_color, (tuple, list))
+            or len(base_color) != 3
+            or not all(isinstance(c, int) and 0 <= c <= 255 for c in base_color)
+        ):
             print(f"Warning: Invalid color {base_color}, using default green")
             base_color = (0, 255, 0)  # Default to green if invalid
-            
+
         try:
             # Render normal text
             base_surf = self.font.render(text, True, base_color)
@@ -216,7 +219,7 @@ class GameEngine:
         # Draw animated background
         current_time = pygame.time.get_ticks()
         self.draw_background_effects(current_time)
-        
+
         # Initialize fonts
         try:
             title_font = pygame.font.SysFont("Courier New", 72, bold=True)
@@ -228,59 +231,76 @@ class GameEngine:
             title_font = pygame.font.SysFont(None, 72, bold=True)
             tagline_font = pygame.font.SysFont(None, 18)
             mission_font = pygame.font.SysFont(None, 20, bold=True)
-        
+
         # Render and center the title
         title_text = "SIGMA"
-        title_surface = title_font.render(title_text, True, (0, 255, 100))  # Bright green
-        title_rect = title_surface.get_rect(centerx=self.width//2, top=40)
+        title_surface = title_font.render(
+            title_text, True, (0, 255, 100)
+        )  # Bright green
+        title_rect = title_surface.get_rect(centerx=self.width // 2, top=40)
         self.screen.blit(title_surface, title_rect)
-        
+
         # Simple tagline without animation
         tagline = "ADVANCED THREAT SIMULATION PLATFORM"
         tagline_surf = tagline_font.render(tagline, True, (100, 255, 100))
-        self.screen.blit(tagline_surf, (self.width//2 - tagline_surf.get_width()//2, 120))
-        
+        self.screen.blit(
+            tagline_surf, (self.width // 2 - tagline_surf.get_width() // 2, 120)
+        )
+
         # Mission list container
         container_width = min(800, self.width - 100)
         container_height = min(400, self.height - 250)
         container_x = (self.width - container_width) // 2
         container_y = 170
         container_padding = 20
-        
+
         # Draw container background
-        container_surface = pygame.Surface((container_width, container_height), pygame.SRCALPHA)
+        container_surface = pygame.Surface(
+            (container_width, container_height), pygame.SRCALPHA
+        )
         container_surface.fill((0, 20, 10, 200))  # Semi-transparent dark green
-        
+
         # Add border
         border_color = (0, 120, 60, 200)
-        pygame.draw.rect(container_surface, border_color, container_surface.get_rect(), 2)
+        pygame.draw.rect(
+            container_surface, border_color, container_surface.get_rect(), 2
+        )
         self.screen.blit(container_surface, (container_x, container_y))
-        
+
         # Mission list settings (font already set in the try-except block above)
         mission_height = 50
         mission_spacing = 10
-        visible_missions = min(5, (container_height - 2 * container_padding) // (mission_height + mission_spacing))
-        
+        visible_missions = min(
+            5,
+            (container_height - 2 * container_padding)
+            // (mission_height + mission_spacing),
+        )
+
         # Calculate start index for scrolling
-        start_index = max(0, min(
-            self.selected_index - visible_missions // 2,
-            len(self.missions) - visible_missions
-        ))
-        
+        start_index = max(
+            0,
+            min(
+                self.selected_index - visible_missions // 2,
+                len(self.missions) - visible_missions,
+            ),
+        )
+
         # Calculate vertical position of the first mission
         start_y = container_y + container_padding
-        
-        for i in range(start_index, min(start_index + visible_missions, len(self.missions))):
+
+        for i in range(
+            start_index, min(start_index + visible_missions, len(self.missions))
+        ):
             mission = self.missions[i]
             is_selected = i == self.selected_index
             y_pos = start_y + (i - start_index) * (mission_height + mission_spacing)
-            
+
             # Mission background
             bg_width = container_width - (2 * container_padding)
             bg_height = mission_height
             bg_x = container_x + container_padding
             bg_y = y_pos
-            
+
             # Draw selection highlight
             if is_selected:
                 bg_surf = pygame.Surface((bg_width, bg_height), pygame.SRCALPHA)
@@ -288,52 +308,52 @@ class GameEngine:
                     bg_surf,
                     (0, 50, 25, 200),  # Darker green for selected
                     bg_surf.get_rect(),
-                    border_radius=4
+                    border_radius=4,
                 )
                 # Left accent bar
-                pygame.draw.rect(
-                    bg_surf,
-                    (0, 255, 100),
-                    (0, 0, 4, bg_height)
-                )
+                pygame.draw.rect(bg_surf, (0, 255, 100), (0, 0, 4, bg_height))
                 self.screen.blit(bg_surf, (bg_x, bg_y))
-            
+
             # Draw mission text
             text_y = bg_y + (mission_height - 24) // 2  # Center vertically
-            
+
             # Mission prefix (only show for selected)
             if is_selected:
                 prefix = ">>"
                 prefix_surf = mission_font.render(prefix, True, (0, 255, 100))
                 self.screen.blit(prefix_surf, (bg_x + 15, text_y))
-            
+
             # Mission name
             mission_text = f"MISSION: {mission['name']}"
             mission_surf = mission_font.render(mission_text, True, (220, 220, 220))
-            
+
             # Truncate text if too long
             max_text_width = bg_width - 100
             if mission_surf.get_width() > max_text_width:
-                while mission_surf.get_width() > max_text_width and len(mission_text) > 10:
+                while (
+                    mission_surf.get_width() > max_text_width and len(mission_text) > 10
+                ):
                     mission_text = mission_text[:-4] + "..."
-                    mission_surf = mission_font.render(mission_text, True, (220, 220, 220))
-            
+                    mission_surf = mission_font.render(
+                        mission_text, True, (220, 220, 220)
+                    )
+
             self.screen.blit(mission_surf, (bg_x + 50, text_y))
-            
+
             # Difficulty - right aligned
             difficulty = mission["difficulty"].lower()
             if difficulty == "easy":
                 diff_color = (100, 255, 100)  # Green
             elif difficulty == "medium":
-                diff_color = (255, 200, 0)    # Yellow
+                diff_color = (255, 200, 0)  # Yellow
             else:
                 diff_color = (255, 100, 100)  # Red
-                
+
             difficulty_text = f"{mission['difficulty'].upper()}"
             diff_surf = mission_font.render(difficulty_text, True, diff_color)
             diff_x = bg_x + bg_width - diff_surf.get_width() - 20
             self.screen.blit(diff_surf, (diff_x, text_y))
-        
+
         # Draw controls help at the bottom
         controls_font = pygame.font.SysFont("Arial", 14)
         controls_text = "↑/↓: Select  |  ENTER: Start  |  ESC: Quit"

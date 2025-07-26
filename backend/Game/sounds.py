@@ -433,7 +433,9 @@ class SoundManager:
 
         # Add some random server fan sounds
         fan_env = 0.5 * (1 + numpy.sin(2 * numpy.pi * 0.05 * t))  # Slow pulsing
-        fan = fan_env * 0.01 * numpy.sin(2 * numpy.pi * 120 * t)  # Clean 120Hz fan sound
+        fan = (
+            fan_env * 0.01 * numpy.sin(2 * numpy.pi * 120 * t)
+        )  # Clean 120Hz fan sound
 
         # Add occasional disk activity
         disk = numpy.zeros(n_samples)
@@ -443,7 +445,9 @@ class SoundManager:
                 start = int(time * sample_rate)
                 end = min(start + 100, n_samples)
                 # Subtle, clean disk activity
-                disk[start:end] = 0.02 * numpy.sin(2 * numpy.pi * 800 * numpy.linspace(0, 0.1, end - start))
+                disk[start:end] = 0.02 * numpy.sin(
+                    2 * numpy.pi * 800 * numpy.linspace(0, 0.1, end - start)
+                )
 
         # Combine all layers with reduced overall volume
         audio = 0.5 * (hum + fan + disk)
@@ -461,68 +465,70 @@ class SoundManager:
         sample_rate = 44100
         duration = 0.6  # seconds
         n_samples = int(sample_rate * duration)
-        
+
         # Create a rising tone for success
         t = numpy.linspace(0, duration, n_samples, False)
         tone1 = 0.2 * numpy.sin(2 * numpy.pi * 880 * t)  # A5
         tone2 = 0.15 * numpy.sin(2 * numpy.pi * 1318.51 * t)  # E6
-        
+
         # Create an envelope (quick attack, medium release)
         attack = int(0.1 * sample_rate)  # 100ms attack
         release = int(0.3 * sample_rate)  # 300ms release
-        
+
         envelope = numpy.ones(n_samples)
         if attack > 0:
             envelope[:attack] = numpy.linspace(0, 1, attack)
         if release > 0:
             envelope[-release:] = numpy.linspace(1, 0, release)
-        
+
         # Combine tones and apply envelope
         audio = (tone1 + tone2) * envelope
         audio = numpy.clip(audio, -0.99, 0.99)
-        
+
         # Create stereo sound
         stereo = numpy.column_stack((audio, audio * 0.95))  # Slight stereo variation
         sound = pygame.sndarray.make_sound((stereo * 32767).astype(numpy.int16))
         sound.set_volume(0.5)  # Reasonable volume level
         return sound
-        
+
     def _create_failure_sound(self) -> pygame.mixer.Sound:
         """Create a failure/error sound effect"""
         sample_rate = 44100
         duration = 0.8  # seconds
         n_samples = int(sample_rate * duration)
-        
+
         # Create a falling tone for failure
         t = numpy.linspace(0, duration, n_samples, False)
-        tone = 0.3 * numpy.sin(2 * numpy.pi * 440 * (1 - 0.5 * t / duration) * t)  # Falling pitch
-        
+        tone = 0.3 * numpy.sin(
+            2 * numpy.pi * 440 * (1 - 0.5 * t / duration) * t
+        )  # Falling pitch
+
         # Create an envelope (quick attack, medium release)
         attack = int(0.05 * sample_rate)  # 50ms attack
         release = int(0.4 * sample_rate)  # 400ms release
-        
+
         envelope = numpy.ones(n_samples)
         if attack > 0:
             envelope[:attack] = numpy.linspace(0, 1, attack)
         if release > 0:
             envelope[-release:] = numpy.linspace(1, 0, release)
-        
+
         # Apply envelope and add some noise
         audio = tone * envelope
         noise = 0.1 * (numpy.random.random(n_samples) * 2 - 1)  # Add some noise
         audio = numpy.clip(audio + noise, -0.99, 0.99)
-        
+
         # Create stereo sound
         stereo = numpy.column_stack((audio, audio * 0.9))  # Slight stereo variation
         sound = pygame.sndarray.make_sound((stereo * 32767).astype(numpy.int16))
         sound.set_volume(0.4)  # Slightly lower volume for error sounds
         return sound
-        
+
     def _create_keyboard_sound(self, duration_ms: int = 5000) -> pygame.mixer.Sound:
         """Create a keyboard typing sound effect"""
         sample_rate = 44100
         n_samples = int(sample_rate * duration_ms / 1000)
-        
+
         # Ensure we have a minimum length to avoid empty array issues
         if n_samples == 0:
             # Return a silent sound if duration is 0
@@ -530,23 +536,29 @@ class SoundManager:
 
         # Create an array to hold the audio data
         audio = numpy.zeros(n_samples)
-        
+
         # Limit the number of key presses to prevent too many sounds
-        max_key_presses = min(100, n_samples // 100)  # At most 100 key presses or 1 per 100 samples
-        
+        max_key_presses = min(
+            100, n_samples // 100
+        )  # At most 100 key presses or 1 per 100 samples
+
         # Create key press events with varying speeds and patterns
         for _ in range(max_key_presses):
             # Random position for the key press
-            pos = random.randint(0, max(1, n_samples - 1000))  # Leave room for the key press
-            
+            pos = random.randint(
+                0, max(1, n_samples - 1000)
+            )  # Leave room for the key press
+
             # Random key press length (3-10ms)
-            press_len = min(1000, max(100, random.randint(130, 400)))  # Ensure reasonable bounds
-            
+            press_len = min(
+                1000, max(100, random.randint(130, 400))
+            )  # Ensure reasonable bounds
+
             # Ensure we don't go out of bounds
             press_len = min(press_len, n_samples - pos)
             if press_len <= 0:
                 continue
-                
+
             # Random frequency for this key (higher frequencies for higher keys)
             freq = random.uniform(100, 1000)
 
@@ -557,7 +569,7 @@ class SoundManager:
             # Apply an envelope (quick attack, quick release)
             attack = max(1, int(press_len * 0.2))
             release = max(1, int(press_len * 0.3))
-            
+
             # Ensure attack + release doesn't exceed press_len
             if attack + release > press_len:
                 attack = release = max(1, press_len // 2)
